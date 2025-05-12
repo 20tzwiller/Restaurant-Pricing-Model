@@ -1,0 +1,341 @@
+---
+title: "Zwiller_Linear_Regression_Homework"
+author: "Thomas Zwiller"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Visualization
+
+**In linear regression, data distribution and relationship are critical. In particular, histograms examine if the observations are skewed while scatter plot examine if a relationship is linear. Examine histograms and scatter plots for the variables of your interests. If there are some concerns, try different wrangling to mitigate the concerns.**
+
+```{r}
+#loading in files
+load(file = "/Users/TomTheIntern/Desktop/Mendoza/Mod 1/Stats/Case 2/CroqPain_new.rda")
+load(file = "/Users/TomTheIntern/Desktop/Mendoza/Mod 1/Stats/Case 2/CroqPainFix.rda")
+
+#cleaning by dropping repeats
+CroqPaiFix <- unique(CroqPaiFix)
+#In total there were five duplicates that were dropped from the set, which should give us better data to work with
+```
+**Look at correlations between variables and try to identify sources of concern. In R, you can use cor function. Pay particular attention to the correlation for total and P15 through P55. Do these correlations make sense to you?**
+
+First things first we need to make the performance ratio that is mentioned on page 303 of the case study, which is the performance ratio. 
+
+The ratio can be measured as Sales - Variable Cost / Invested Capital 
+
+Essentially, the Performance Ratio = Operating Earnings / Invested Capital. 
+
+This means that we need to use the EARN Variable and the K Variable
+
+```{r}
+#Creating the Per Ratio in the CroqPaiFix database
+CroqPaiFix$PerRatio <- ((CroqPaiFix$EARN * 1000) / (CroqPaiFix$K * 1000)) * 100
+```
+
+
+```{r}
+#Created a correlation with just Total and the P values for easier readability
+cor(CroqPaiFix)
+
+```
+We can see from the data that in particular, P15 (.647), P35 (.637) and P45 (.6215) have an incredibly high correlation with the total, so if we want to do any modeling, these variables might be our best bet.
+
+Let's graph them.
+```{r}
+library(ggplot2)
+library(ggthemes)
+#graphing P15 and totals correlation
+ggplot(CroqPaiFix, aes(x = P15, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+
+#graphing P35 and totals correlation
+ggplot(CroqPaiFix, aes(x = P35, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+
+#graphing P45 and totals correlation
+ggplot(CroqPaiFix, aes(x = P45, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+```
+
+
+```{r}
+##Created a correlation with just the performance ratio and remaining values
+cor(CroqPaiFix[ ,12:17], CroqPaiFix[ , 18])
+```
+While none of these variables have an incredibly high correlation, it may be worth using INC and PRICE 
+
+```{r}
+ggplot(CroqPaiFix, aes(x = INC, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+
+ggplot(CroqPaiFix, aes(x = PRICE, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+```
+
+
+It is also worth looking at the Earn, K, Size and Employee values in relation to total as well.
+
+```{r}
+cor(CroqPaiFix[ ,2:5], CroqPaiFix[ , 18])
+library("openxlsx")
+write.xlsx(CroqPaiFix, file = "CroqPaiFix")
+```
+Earn might be worth looking into further, but it is a part of our profit ratio, so it makes sense that it would have a high correlation. 
+
+```{r}
+ggplot(CroqPaiFix, aes(x = EARN, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+```
+
+
+**Create new variables by dividing EARN, P15, P25, P35, P45, P55, COMP, NCOMP, and NREST by total. These new variables are per capita. Examine correlations with the transformed. Do these correlations make sense to you?**
+
+First, we need to make our per capita statistics.
+```{r}
+#Using the existing data frame to calculate the per capita stats
+CroqPaiFix$EARN_Per <- CroqPaiFix$EARN / CroqPaiFix$total
+CroqPaiFix$P15_Per <- CroqPaiFix$P15 / CroqPaiFix$total
+CroqPaiFix$P25_Per <- CroqPaiFix$P25 / CroqPaiFix$total
+CroqPaiFix$P35_Per <- CroqPaiFix$P35 / CroqPaiFix$total
+CroqPaiFix$P45_Per <- CroqPaiFix$P45 / CroqPaiFix$total
+CroqPaiFix$P55_Per <- CroqPaiFix$P55 / CroqPaiFix$total
+CroqPaiFix$COMP_Per <- CroqPaiFix$COMP / CroqPaiFix$total
+CroqPaiFix$NCOMP_Per <- CroqPaiFix$NCOMP / CroqPaiFix$total
+CroqPaiFix$NREST_Per <- CroqPaiFix$NREST / CroqPaiFix$total
+
+#Correlation calculation with just the per captia statistics into an independent data frame for better readability
+cor(CroqPaiFix[19:27], CroqPaiFix[ , 18])
+```
+The highest per capita value is P35_Per, but it is at .556, which may not be high enough for what we need. 
+```{r}
+ggplot(CroqPaiFix, aes(x = P35_Per, y = PerRatio)) +
+  geom_point() + 
+  geom_smooth(method = loess, color = 'red', linetype = 'dashed')+ 
+  theme_stata()
+```
+**If you have more ideas for a better model, please feel free to create new variables. Examine them visually before using them.**
+
+## 2-1. Building Models (Part a)
+
+**Consider all observations in CroqPainFix.**
+
+**Michel’s first model is shown in Table 6.27 on page 305 with some concerns. Try to improve the model that does not violate any of the basic assumptions of regression but has good predictive power. In short, you should carefully choose the explanatory variables. What are the explanatory variables of your choice?**
+
+THIS IS NOT ACCURATE
+
+Based on Page 305, we can deduce that Michel likely used the following variables for her model:
+Size
+Employee
+Total
+P15
+P25
+P35
+P45
+P55
+INC
+COMP
+NCOMP
+NREST
+PRICE
+CLI
+
+We can recreate that model using R. 
+
+```{r}
+
+Michels_Model <- lm(PerRatio ~ SIZE + EMPL + total + P15 + P25 + P35 + P45 + P55 + INC + COMP + NCOMP + NREST + PRICE, data = CroqPaiFix)
+
+summary(Michels_Model)
+
+anova(Michels_Model)
+
+```
+Our model will attempt to be a bit nimbler than what Michel's was. 
+
+```{r}
+#installing car so I can use it to run vif tests
+library(car)
+
+#Fantastic R^2 value, but we aren't given earn in the final data set, but earn is essentially self referential for the performance ratio so we want to avoid it anyway
+Group_Model <- lm(PerRatio ~ total + P15 + P35 + P45_Per + P55 + INC + PRICE + CLI + EARN_Per + SIZE + NREST + NCOMP_Per, data = CroqPaiFix)
+summary(Group_Model)
+
+#Fantastic R^2 but it includes earn again...
+Group_Model_2 <- lm(PerRatio ~ P15 + P35 + P45_Per + P55 + INC + PRICE + CLI + EARN_Per + SIZE + NREST + NCOMP_Per, data = CroqPaiFix)
+summary(Group_Model_2)
+
+#Doesn't use Earn so we have a massive dip in our R^2 value, but it also uses employee which we aren't given the employee in the projection 
+Group_Model_3 <- lm(PerRatio ~ EMPL + P15 + P35 + P45_Per + P55 + INC + PRICE + CLI + SIZE + NREST + NCOMP_Per, data = CroqPaiFix)
+summary(Group_Model_3)
+
+#Solid R^2 value, however there is high multicollinearity between K and Size, as well as P15m P35 and P45 (like really bad)
+Group_Model_4 <- lm(PerRatio ~ K + SIZE + P15 + P15_Per + P35_Per + P45_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_4)
+car::vif(Group_Model_4)
+
+#I tried switch all of the age per capita adjusted metrics into the raw population numbers. The r^2 did not change all that much, but I do think that the multicollinearity got worse
+Group_Model_5 <- lm(PerRatio ~ K + SIZE + P15 + P25 + P35 + P45 + P55 + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_5)
+car::vif(Group_Model_5)
+
+#The multicollinearity dropped like crazy, but the R^2 inst that great. Plus, P35_Per and P45_Per still aren't all that great 
+Group_Model_6 <- lm(PerRatio ~ K + total + P25_Per + P35_Per + P45_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_6)
+car::vif(Group_Model_6)
+
+#This version actually ended up being a bit too critical. The good news is that none of the VIF scores come close to getting to 5 (most are less than 2) and the R^2 while not ideal is still really strong at 77.83. 
+Group_Model_7 <- lm(PerRatio ~ K + total + P35_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_7)
+car::vif(Group_Model_7)
+
+#This version of the model saw K swapped for SIZE. Since K is directly tied to the performance ratio I figured it didn't make too much sense to use it in the model. However because SIZE seemed to be flagged for multicollinearity with K a lot, the best way to infer the K without directly using it was to use size. 
+#This version of the model also ended up being too critical
+Group_Model_8 <- lm(PerRatio ~ SIZE + total + P35_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_8)
+car::vif(Group_Model_8)
+
+Group_Model_9 <- lm(PerRatio ~ SIZE + P35 + P55 + NCOMP + NREST + INC + CLI + PRICE, data = CroqPaiFix)
+summary(Group_Model_9)
+car::vif(Group_Model_9)
+```
+**When you run regressions, be sure to check multicollinearity. If you want, you can try different variable selection algorithms. However, be critical and make a decision about the final model to recommend for Croq’Pain.**
+
+## 2-2. Validation by Testing (Part b)
+
+**In 2-1, you built a model using all observations in CroqPainFix. Michel wants to validate its usefulness (or accuracy) with existing data. Split CroqPainFix into the following two data sets.**
+**CroqPainFix_50: The 50 stores opened up prior to 1994, i.e., STOR<=50.**
+
+```{r}
+CroqPaiFix_50 <- CroqPaiFix[1:50, ]
+```
+
+**CroqPainFix_10: The 10 stores opened in the first half of 1994, i.e., STOR>50.**
+
+```{r}
+CroqPaiFix_51_60 <- CroqPaiFix[51:60, ]
+```
+
+**Using CroqPainFix_50, re-estimate your model. That is, keep your explanatory variables from 2-1 and re-estimate their coefficients with the data set of 50 stores.**
+
+```{r}
+
+#The old best model :/
+Group_Model_3.1 <- lm(PerRatio ~ K + SIZE + P15 + P15_Per + P35_Per + P45_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix_50)
+#Really good r^2 (81.79) but the multicollinearity was kind of crazy for any of the population values, as well as size and K! So we had to drop it.
+summary(Group_Model_3.1)
+car::vif(Group_Model_3.1)
+
+Group_Model_7.1 <- lm(PerRatio ~ K + total + P35_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix_50)
+summary(Group_Model_7.1)
+car::vif(Group_Model_7.1)
+#This was the interesting part of this model. The R^2 actually went up to 79.02, which while not 80 is a value that I am very happy with. The multicollinearity does jump up for the population metrics but except for P35_Per, none of them get all that close to 5. 
+
+Group_Model_8.1 <- lm(PerRatio ~ SIZE + total + P35_Per + P55_Per + NCOMP_Per + NREST_Per + INC + CLI + PRICE, data = CroqPaiFix_50)
+summary(Group_Model_8.1)
+car::vif(Group_Model_8.1)
+#Similar to 7.1, this model saw a bit of a jump in the multicollinearity and the R^2 score went up a bit to 78.96. We need to make sure that this version isn't too critical first before we move forward with it.
+
+Group_Model_9.1 <- lm(PerRatio ~ SIZE + P35 + P55 + NCOMP + NREST + INC + CLI + PRICE, data = CroqPaiFix_50)
+summary(Group_Model_9.1)
+car::vif(Group_Model_9.1)
+```
+
+
+**With this newly estimated model, predict the performances of the 10 stores in CroqPainFix_10. Using Croq’Pain’s performance ratio target of 26%, which of the ten stores would you have opened in 1994 according to your model?**
+
+
+```{r}
+#time to build our first function! This function reads in all the data we need for our model, multiplies the data by the intercept and reports back the rounded projected performance ratio with the store name. 
+model_function <- function(STOR, SIZE, P35, P55, NCOMP, NREST, INC, CLI, PRICE){
+  PR <- (-29.17 + (as.numeric(SIZE) * -0.006509) + as.numeric(P35) * 0.003350 + as.numeric(P55) * 0.0003070 + as.numeric(NCOMP) * -0.003247 + as.numeric(NREST) * 0.1412 + as.numeric(INC) * 1.345 + as.numeric(CLI) * -0.002424 + as.numeric(PRICE) * -0.7058)
+  Store <- STOR 
+  
+  PR <- round(PR, 2)
+  
+  return(paste(Store, "has a Performance Ratio of", PR, "%"))
+}
+
+#applying the function to the data set
+result <- apply(CroqPaiFix_51_60, MARGIN = 1, FUN = function(row) {
+  model_function(
+    STOR = row[1],
+    SIZE = row[3],
+    P35 = row[9],
+    P55 = row[11],
+    NCOMP = row[14],
+    NREST = row[15],
+    INC = row[12],
+    CLI = row[17],
+    PRICE = row[16]
+  )
+})
+
+result
+```
+Based on our model, we determined that only two stores would meet the performance threshold we need for the store to be deemed "successful": 
+Store 57 (30.73)
+Store 60 (31.01)
+
+
+## 3. Prediction (Part c)
+
+**As you validated the model (i.e., a selection of explanatory variables), let’s use the most complete estimates using CroqPainFix. With this complete model, you need to recommend which new locations Croq’Pain should open its stores among 10 locations in Table 6.28 or CroqPain_new.rda. Which locations would you recommend?**
+
+One problem that we ran into was that our model uses the EARN Per Capita value to forecast the Profitability Ratio. The Croq_Pain database was loaded in without an economic forecast, which means that we either had to modify our model, or create an economic forecasting model of our own, run that through the new data to create and EARN and then try to predict which Croq Pains should be opened. So we changed models and went to the current iteration
+
+After a lot of tests, including one where the model was much too critical, we finally have a working model that has:
+
+A strong R^2 value
+Low multicollinearity 
+Isn't too critical (doesn't recommend 0 new openings)
+Isn't too positive (doesn't recommend 1+ openings with a high performance ratio)
+
+```{r}
+
+final_result <- apply(CroqPain_new, MARGIN = 1, FUN = function(row) {
+  model_function(
+    STOR = row[1],
+    SIZE = row[3],
+    P35 = row[8],
+    P55 = row[10],
+    NCOMP = row[13],
+    NREST = row[14],
+    INC = row[11],
+    CLI = row[16],
+    PRICE = row[15]
+  )
+})
+
+final_result
+```
+The model predicted that Toulouse would have a Performance Ratio of 27.6%, slightly above the required threshold of 26%. 
+
+## 4. Report your recommendation (Part d)
+**Prepare an executive summary containing your recommendations as to which store they should open according to your regression analysis.**
+
+
+
+<br>
+<br>
+<br>
+<br>
+
